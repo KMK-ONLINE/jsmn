@@ -21,14 +21,12 @@ typedef enum {
 	JSMN_STRING = 3
 } jsmntype_t;
 
-typedef enum {
-	/* Not enough tokens were provided */
-	JSMN_ERROR_NOMEM = -1,
-	/* Invalid character inside JSON string */
-	JSMN_ERROR_INVAL = -2,
-	/* The string is not a full JSON packet, more bytes expected */
-	JSMN_ERROR_PART = -3
-} jsmnerr_t;
+/* Not enough tokens were provided */
+#define JSMN_ERROR_NOMEM -1
+/* Invalid character inside JSON string */
+#define JSMN_ERROR_INVAL -2
+/* The string is not a full JSON packet, more bytes expected */
+#define JSMN_ERROR_PART -3
 
 /**
  * JSON token description.
@@ -65,7 +63,7 @@ void jsmn_init(jsmn_parser *parser);
  * Run JSON parser. It parses a JSON data string into and array of tokens, each describing
  * a single JSON object.
  */
-jsmnerr_t jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
+int jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 		jsmntok_t *tokens, unsigned int num_tokens);
 
 #ifdef __cplusplus
