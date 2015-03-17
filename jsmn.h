@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+#define JSMN_PARENT_LINKS
+
 /**
  * JSON type identifier. Basic types are:
  * 	o Object
@@ -65,6 +67,14 @@ void jsmn_init(jsmn_parser *parser);
  */
 int jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
 		jsmntok_t *tokens, unsigned int num_tokens);
+
+/**
+ * From tokens to compact JSON format that all unnecessary spaces are stripped
+ * for storage
+ * @start_token the token where the data starts to encode
+ * @returns a string if succeeded and it is the caller's responsibility to free
+ */
+char * jsmn_compact(jsmntok_t *tokens, unsigned int num_tokens, int start_token, const char * js, size_t len);
 
 #ifdef __cplusplus
 }

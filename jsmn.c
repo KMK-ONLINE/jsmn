@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "jsmn.h"
 
@@ -307,5 +308,132 @@ void jsmn_init(jsmn_parser *parser) {
 	parser->pos = 0;
 	parser->toknext = 0;
 	parser->toksuper = -1;
+}
+
+
+struct sized_str {
+	char* val;   /* pointer to string */
+	size_t size; /* remaning size of string buffer (including nul) */
+};
+
+
+/**
+ * Append min(src_len,dst->size) of src to dst->val, both advancing
+ * dst->val and decrementing dst->size by the number of bytes appended.
+ *
+ * This function null-terminate the string unless dst->size is 0.
+ */
+static void
+str_append(
+	struct sized_str* dst, /* destination and size of string buffer */
+	const char* src,       /* source string buffer */
+	size_t src_len         /* length of source (excluding nul) */
+) {
+	if (dst->size <= src_len) {
+		if (dst->size < 1) {
+			return; /* no hope, give up */
+		}
+		/* truncate to fit (and maintain nul termination) */
+		src_len = dst->size - 1;
+	}
+	memcpy(dst->val, src, src_len);
+	dst->size -= src_len;
+	dst->val += src_len;
+	dst->val[0] = '\0';
+}
+
+/* Build a string representing JSON represented by tokens, appending
+ * the output to *out, and advancing *out to the end of the string.
+ *
+ * @returns number of tokens consumed
+ */
+static int jsmn_stringify(
+	struct sized_str *out, /* partially built output string */
+	jsmntok_t *tokens,     /* token stream */
+	int num_tokens,        /* remaining tokens in token stream */
+	const char* js         /* input json (indexed by tokens) */
+) {
+	if (num_tokens < 1) {
+		return 0;
+	}
+
+	switch (tokens->type) {
+	case JSMN_PRIMITIVE: { /* simple token, append to output */
+		int token_len = tokens->end - tokens->start;
+		str_append(out, js + tokens->start, token_len);
+		return 1;
+	}
+
+	case JSMN_STRING: { /* simple token, append to output */
+		int token_len = tokens->end - tokens->start;
+		str_append(out, "\"", 1);
+		str_append(out, js + tokens->start, token_len);
+		str_append(out, "\"", 1);
+		return 1;
+	}
+
+	case JSMN_ARRAY: {
+		int j, t = 1; /* t = token index */
+		str_append(out, "[", 1);
+		for (j = 0; j < tokens->size; j++) { /* for each value in list */
+			if (j) /* not first value in list */
+				str_append(out, ",", 1);
+			t += jsmn_stringify(out, tokens + t, num_tokens - t, js); /* value */
+		}
+		str_append(out, "]", 1);
+		return t;
+	}
+
+	case JSMN_OBJECT: {
+		int j, t = 1; /* t = token index */
+		str_append(out, "{", 1);
+		for (j = 0; j < tokens->size; j++) { /* for each pair in map */
+			if (t >= num_tokens)
+				break;
+#ifdef JSMN_STRICT
+			if (tokens[t].type != JSMN_STRING) {
+				/* error, map must be string : value */
+				return t;
+			}
+#endif
+			if (j) /* not first pair in map */
+				str_append(out, ",", 1);
+			t += jsmn_stringify(out, tokens + t, num_tokens - t, js); /* string */
+
+			str_append(out, ":", 1);
+			t += jsmn_stringify(out, tokens + t, num_tokens - t, js); /* value */
+		}
+		str_append(out, "}", 1);
+		return t;
+	}
+	}
+
+	/* unreachable */
+	return 0;
+}
+
+
+/**
+ * Convert json blob represented by js of length js_len and previously
+ * parsed into tokens , to a minified representation that omits all
+ * redundant white space.
+ *
+ * @returns NULL on error, otherwise,
+ *          a malloc'd string of serialised data; owned by the caller
+ */
+char * jsmn_compact(jsmntok_t *tokens, unsigned int num_tokens, int start_token, const char * js, size_t js_len)
+{
+	/* if js_len js is covered by [start_token, start_token + num_tokens),
+	 * then, by definition the output will be <= js_len (+1 for null) */
+	char* retval;
+	struct sized_str str = {
+		/* .val */  retval = malloc(js_len + 1),
+		/* .size */ js_len + 1
+	};
+	if (!retval)
+		return NULL;
+
+	jsmn_stringify(&str, tokens + start_token, num_tokens, js);
+	return retval;
 }
 
