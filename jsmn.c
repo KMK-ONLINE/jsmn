@@ -440,3 +440,60 @@ char * jsmn_compact(jsmntok_t *tokens, unsigned int num_tokens, int start_token,
 	return retval;
 }
 
+/**
+ * Unescape the JSON string that contains escaped characters
+ * NOTE: JSON encodes special characters such as double quotes,
+ * back/forward slashes and controlling characters with escapes.
+ * This function restores the escaped string back to normal
+ * string for further parsing if needed
+ */
+void jsmn_unescape_string(char * js)
+{
+	int pos;
+	size_t js_len = strlen(js);
+	for (pos = 0; pos < js_len; pos++) {
+		char c = js[pos];
+		int move = 0;
+		if (c == '\\' && pos + 1 < js_len) {
+			switch (js[pos + 1]) {
+				/* escaped quotes */
+				case '\"':
+				case '/' :
+				case '\\':
+					move = 1;
+					break;
+				/* Allowed escaped symbols */
+				case 'b' :
+					js[pos + 1] = '\b';
+					move = 1;
+					break;
+				case 'f' :
+					js[pos + 1] = '\f';
+					move = 1;
+					break;
+				case 'r' :
+					js[pos + 1] = '\r';
+					move = 1;
+					break;
+				case 'n' :
+					js[pos + 1] = '\n';
+					move = 1;
+					break;
+				case 't' :
+					js[pos + 1] = '\t';
+					move = 1;
+					break;
+				/* ignoring escaped unicode symbol \uXXXX */
+				case 'u':
+				default:
+					break;
+			}
+			if (move) {
+				// including terminating NUL
+				memmove(&js[pos], &js[pos + 1], js_len - pos);
+				js_len--;
+			}
+		}
+	}
+}
+

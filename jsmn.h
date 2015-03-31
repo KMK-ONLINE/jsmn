@@ -76,6 +76,16 @@ int jsmn_parse(jsmn_parser *parser, const char *js, size_t len,
  */
 char * jsmn_compact(jsmntok_t *tokens, unsigned int num_tokens, int start_token, const char * js, size_t len);
 
+/**
+ * Unescape the JSON string that contains escaped characters
+ * NOTE: JSON encodes special characters such as double quotes,
+ * back/forward slashes and controlling characters with escapes.
+ * This function restores the escaped string back to normal
+ * string for further parsing if needed
+ * @param js the json string that may have escaped characters,
+ *           must be NUL terminated
+ */
+void jsmn_unescape_string(char * js);
 #ifdef __cplusplus
 }
 #endif
